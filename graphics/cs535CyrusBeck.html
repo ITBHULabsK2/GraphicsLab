@@ -1,0 +1,294 @@
+<!DOCTYPE HTML PUBLIC "-//w3c//dtd html 4.0 transitional//en">
+<html><head>
+
+
+   <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.7 [en] (Win95; I) [Netscape]">
+   <title>CS 535 CYRUS-BECK CLIPPING</title>
+</head><body>
+
+<center>
+<h1>
+CS 535 NOTES<br>
+CYRUS-BECK CLIPPING ALGORITHM</h1></center>
+<h3>Cyrus Beck Development</h3>
+The Cyrus-Beck line clipping algorithm uses vector ideas to compute a line
+clipped to a convex polygon. The input would be the line (L) and the polygon (a
+2D array of vertices). The parametric vector form for a straight line is
+<br>P(t) = P<sub>0</sub> + t(P<sub>1</sub> - P<sub>0</sub>) which is a "mathematical"
+shorthand for the pair of equations:<br>
+x(t) = x<sub>0</sub> + t(x<sub>1</sub> - x<sub>0</sub>)<br>
+y(t) = y<sub>0</sub> + t(y<sub>1</sub> - y<sub>0</sub>)<br>
+Which could be turned into computer code easily.
+<br>Consider any edge E from the polygon (basically, an edge is formed
+from 2 adjacent vertices V[i] and V[i+1]). Let Q be any point on the edge
+E (we will use one of the vertices in the code below) and consider the vector from
+Q to any point on the line L. Since the point is on the line L, it has to 
+satisify the vector form of the line equation.  Thus, there is a value t with
+P(t) producing the point, so the vector then becomes P(t) - Q. Using the OUTER NORMAL, N, 
+to the edge E, we can decide inside/outside for the point P(t) by examining the sign
+of the dot product of N and P(t)-Q.  <br>
+<i><u>Remark:</u></i> The "classic" version of Cyrus-Beck used the
+INNER normal (N<sub>inner</sub> = -N<sub>outer</sub>). This results in a change of
+sign and thus slightly different comparisons in some of the if statements in the code below.<br>
+The outer normal is used here because in 3D we always use the outer normal as the
+surface normal, so to be consistent with the 3D case, the outer normal is used in the development here.
+However, the code typically found in a reference book was probably developed from the
+inner normal case - it still will work and can be used as is.
+Note that INSIDE and OUTSIDE relative to the polygon make sense since the polygon is required to be CONVEX.
+See below for a discussion of INSIDE
+and OUTSIDE.  The outer normal is the one which lies in the outside. In 
+function terms we would write this
+as dotProduct (N, P(t)-Q). The sign will
+be based on the cos(A) where A = angle between N and P(t)-Q and this angle
+will tell us inside/outside. Remember that N is the outer normal
+<pre>&nbsp;&nbsp;
+if (dotProduct(N,P(t)-Q) &gt; 0)
+&nbsp; P(t) OUTSIDE since A &lt; 90 degrees
+else if (dotProduct(N,P(t)-Q) &lt; 0)
+&nbsp; P(t) INSIDE since A &gt; 90 degrees
+else
+&nbsp; P(t) SHOULD BE ON EDGE E&nbsp;
+&nbsp; this is because N would be perpendicular
+&nbsp; to both E and P(t)-Q</pre>
+Since we want the intersection of L and E, this last case is the one that
+we want (dotProduct (N,P(t)-Q) = 0). Unsing the above parametric vector 
+equation for a line --- substituting in P<sub>0</sub> + t(P<sub>1</sub>
+- P<sub>0</sub>) (for the point on L) for P(t).  Then we solve for t by using various
+vector and scalar/vector and dot product rules we get that 
+<center>t = - dotProduct(N,P<sub>0</sub>-Q)/dotProduct(N,P<sub>1</sub>-P<sub>0</sub>)</center>
+
+<p>A value of 0 for the denominator is bad because we cannot divide by 0, so we 
+consider the possible ways in which the denominator could be 0
+</p><ol>
+<li>
+N = 0. This should never happen (the outer normal should never be the 0 vector)</li>
+
+<li>
+P<sub>1</sub> - P<sub>0</sub> = 0. This means that we have a degenerate
+line - a single point.  Clipping a point does not make sense - we could show
+the point (inside the region) or not show the point (outside).  The numerator
+would tell us this because we have created a vector from Q to P<sub>0</sub>.</li>
+
+<li>
+dotProduct = 0. This means that edge E and line L are parallel. The question becomes
+is L "inside" or "outside" of the polygon.  Since we have a point Q on the edge E and a point
+P<sub>0</sub> on the line L and in the calculation for t we have taken the dot product
+of the outer normal and the vector between a point on E and a point on L, we can test
+for inside/outside.  If the numerator &gt; 0 then outside (N is the outer normal) and
+convexity means that L misses the clipping area entirely.  If the numerator is &lt; 0 then 
+L is on the inside BUT there will be NO intersection with the edge E to compute so we
+can go on.  If numerator == 0 then E and L are the same line and the problem is finished.
+</li>
+</ol>
+If we look at the parametric form of the line equation, we have that t &lt; 0 or t &gt; 1 are outside of the 
+line segment we are working with.  thus, the t value must be between 0 and 1 to be interesting 
+(on the line segment).
+<ul>
+<li>If we view increasing t as "moving" along the line segment, then we start at P<sub>0</sub> at t
+= 0 and move towards P<sub>1</sub> at t=1. 
+</li><li>A line divides the plane into two half-planes.  
+</li><li>For a line formed from an edge of the clipping area, the clipping region is always 
+completely contained in one of the half-planes (because the region is convex).  Call
+this half-plane the INSIDE half-plane and the other the OUTSIDE half-plane. 
+</li><li>Thus, as we "move" from t = 0 to t = 1 along the line segment,  
+we can view an intersection as "entering" - going from the OUTSIDE halfplane 
+to the INSIDE halfplace.  Or "exiting" - doing the opposite. 
+</li></ul>
+We can test 
+these via the dot product of the line with the normal - the denominator in the 
+calculation for t above.
+<pre>if (dotProduct(N,P<sub>1</sub>-P<sub>0</sub>) &gt; 0)
+&nbsp; EXITING - since angle A &lt; 90 degrees
+else if (dotProduct (N,P<sub>1</sub>-P<sub>0</sub>) &lt; 0)
+&nbsp; ENTERING - since angle A &gt; 90 degrees</pre>
+If we repeat this for each edge in the polygon -
+<pre>for each (edge E in polygon)
+{ generate t value&nbsp;
+&nbsp; test for range 0 to 1
+&nbsp; if (in range)
+&nbsp;&nbsp;&nbsp; classify as entering or exiting
+}</pre>
+We logically would generate two lists of t's - entering t's and exiting
+t's. Note that we have required that the polygon be convex, here is where it is
+used again.  Since the polygon is CONVEX only two of these values are "real". One
+entering and one exiting t will generate the clipped line segment. The
+values of t that we want are
+<pre>&nbsp;&nbsp; t1 = MAX {t | t entering}
+&nbsp;&nbsp; t2 = MIN {t | t exiting}</pre>
+Finding the MAX and the MIN is easy - just keep "current MAX" and "current
+MIN" in the above for loop. Thus we only need to have two t values at any
+time in the above for loop. If we end with t<sub>entering</sub> &gt; t<sub>exiting</sub>
+then the line L misses the polygon completely.
+<h4>Outer Normal Calculation</h4>
+This leaves us with the problem of determing the outer normal.  We know that if a
+line has slope m then the slope of the perpendicular line is -1/m.  We can use this
+to get the normal - the normal vector would have components (-1/m,1).  Here we examine
+each edge of the polygon and compute the slope m for that edge. Computing m is simple
+given that we have two points on the line.    
+This gives us a "candidate" normal.  Because the polygon
+is convex, we know that all of the other vertices of the polygon must be on the INSIDE
+half-plane formed by the edge (as a line).  Thus if we take a vector from one of the 
+vertices on the edge with one of the other vertices of the polygon, the sign of the dot
+product with the candidate normal will tell us inner or outer.  If inner then just multiply
+the normal by -1 to get the outer normal.  
+<br>
+<h3>Cyrus Beck Code</h3>
+<pre>// Cyrus-Beck 2-D Line Clipping algorithm
+// for ease of coding we will treat a 2D point and a 2D vector
+// as the same 
+struct Point2D
+{ float x,y;
+}
+// for simplicity we set an upper bound on the number of 
+// points allowed to define a polygon - by moving to a class
+// with a constructor we could make the array any size we wanted
+const int MAXP = 100;
+struct Polygon
+{ int nPoints;
+&nbsp; Point2D v[MAXP];
+}
+const int MAXN = 100;
+typedef Point2D Normal[MAXN];
+
+// compute the outer normals.  
+// note that this requires that the polygon be convex
+// to always work
+void CalcNormals (Polygon p, Normal &amp; n)
+{ int i,j,k;
+&nbsp; point2D v;
+&nbsp; for (i = 0; i &lt; p.nPoints; i++)
+&nbsp; { j = (i+1)%p.nPoints;
+&nbsp;&nbsp;&nbsp; k = (i+2)%p.nPoints;
+    // make vector be -1/mI + 1J
+&nbsp;&nbsp;&nbsp; n[i].x = -(p.v[j].y - p.v[i].y)/(p.v[j].x - p.v[i].x);
+&nbsp;&nbsp;&nbsp; n[i].y = 1.0;
+&nbsp;&nbsp;&nbsp; v.x = p.v[k].x - p.v[i].x;
+&nbsp;&nbsp;&nbsp; v.y = p.v[k].y - p.v[i].y;
+&nbsp;&nbsp;&nbsp; if (DotProduct (n[i],v) &gt; 0)&nbsp;&nbsp;&nbsp; // inner normal
+&nbsp;&nbsp;&nbsp; { n[i].x *= -1;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; n[i].y&nbsp; = -1;
+&nbsp;&nbsp;&nbsp; }
+&nbsp; }
+}
+&nbsp;&nbsp;&nbsp;&nbsp;
+float DotProduct (Point2D v1, Point2D v2)
+{&nbsp;
+&nbsp;&nbsp; return v1.x*v2.x + v1.y*v2*y;
+}
+
+void CBClip (Point2D p1, Point2D p2, Normal n, Polygon p, Boolean &amp; visible,
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Point2D &amp; rp, Point2D &amp; q)
+{ float t1,t2,t,num,den;
+&nbsp; Point2D dirV,F;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // vectors
+&nbsp; int I;
+&nbsp;&nbsp;
+    // start largest at smallest legal value and smallest 
+    // at largest legal value
+&nbsp; t1 = 0.0;
+&nbsp; t2 = 1.0;
+&nbsp;&nbsp; // compute the direction vector
+&nbsp; dirV.x = p2.x - p1.x;
+&nbsp; dirV.y = p2.y - p1.y;
+
+&nbsp; visible = TRUE;
+&nbsp; i = 0;
+&nbsp; while ( (i &lt; p.nPoints) &amp;&amp; visible)
+&nbsp; { F.x = p1.x - p.v[i].x;
+&nbsp;&nbsp;&nbsp; F.y = p1.y - p.v[i].y;
+&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp; num&nbsp; = DotProduct (n[i],F);
+&nbsp;&nbsp;&nbsp; den&nbsp;&nbsp; =&nbsp; DotProduct (n[i],dirV);
+
+&nbsp;&nbsp;&nbsp; if (den == 0.0)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // Parallel or Point
+&nbsp;&nbsp;&nbsp; { // parallel - if outside then forget the line; if inside then there are no 
+      // intersections with this side&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // but there may be with other edges, so in this case just keep going
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if (num &gt; 0.0)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; visible = FALSE;&nbsp;&nbsp; //&nbsp;&nbsp; Parallel and outside or point (p1 == p2) and outside
+&nbsp;&nbsp;&nbsp; }
+&nbsp;&nbsp;&nbsp; else&nbsp;
+&nbsp;&nbsp;&nbsp; { t = -(num/den);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if (den &lt; 0.0)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; // entering
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; { if (t &lt;= 1.0)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if (t &gt; t1)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; t1 = t;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; else if ( t &gt;= 0.0)&nbsp;&nbsp;&nbsp; //exiting
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if (t &lt; t2)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; t2 = t;
+&nbsp;&nbsp;&nbsp; }
+&nbsp;&nbsp;&nbsp; i++;
+&nbsp; }
+&nbsp; if ( t1 &lt;= t2)
+&nbsp; { rp.x = p1.x + t1*dirV.x;
+&nbsp;&nbsp;&nbsp; rp.y = p1.y + t1*dirV.y;
+&nbsp;&nbsp;&nbsp; q.x = p1.x + t2.dirV.x
+&nbsp;&nbsp;&nbsp; q.y = p1.y + t2*dirV.y
+&nbsp; }
+&nbsp; else
+&nbsp;&nbsp;&nbsp; visible = FALSE;
+}
+</pre>
+<h3>Liang Barsky Specialization</h3>
+The Liang Barsky clipping algorithm is Cyrus Beck specialized to the "standard" rectangle.  In 
+that case the outer normals are simple - they are the standard unit vectors i,-i,j, and -j (i = (1,0), 
+j = (0,1)).  This also makes the polygon edges have simple equations and the dot product values 
+needed for the numerator and denominator values for the four sides in the above equation for t 
+would be very simple to compute by hand and "hard code" and so the above program can be rewritten.  
+That rewriting results in code that looks quite different from Cyrus Beck. 
+
+<pre>void LBLineClipping (float &amp;x0, float &amp;y0, float &amp;x1, float &amp;y1, bool &amp;visible)
+{ float dx = x1 - x0;
+   float dy = y1 - y0;
+   float tE = 0.0, tL = 1.0;
+   visible = FALSE;
+   if ( dx == 0 &amp;&amp; dy == 0 &amp;&amp; ClipPoint(x0,y0))
+     visible = TRUE;
+   else 
+   { if (CLIP (dx,xmin-x0,tE,tL))          // Inside relative to left side
+        if (CLIP (-dx,x0-xmax,tE,tL))      // Inside relative to right side
+          if (CLIP (dy,y0-ymax,tE,tL))     // Inside relative to bottom
+            if (CLIP(-dy,y0-ymin,tE,tL))   // Inside relative to top
+            { visible = TRUE;
+               if (tL &lt; 1.0)
+               { x1 = x0 + tL*dx;
+                  y1 = y0 + tL*dy;
+               }
+               if (tE &gt; 0.0)
+               { x0 += tE*dx;
+                  y0 += tE*dy;
+               }
+            }
+   }
+}
+
+bool ClipPoint (float x, float y)
+{ // True if the point is inside the clip area &#8230;.
+  // you write this one - xmin &lt;= x &lt;= xmax and 
+  // ymin &lt;= y &lt;= ymax
+
+}
+
+bool CLIP (float denom, float numer, float &amp;tE, float &amp;tL)
+{ float t;
+   if (denom &gt; 0)
+   { t = numer/denom;
+      if (t &gt; tL)
+        return FALSE;
+      else if (t &gt; tE)
+        tE = t;
+   }
+   else if (denom &lt; 0)
+   { t = numer / denom;
+      if ( t &lt; tE)
+        return FALSE;
+      else 
+        rL = t;
+   }
+   else if ( numer &gt; 0)
+     return FALSE;
+   return TRUE;
+}
+
+</pre></body></html>
